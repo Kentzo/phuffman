@@ -7,6 +7,7 @@
 #include "TableInfo.h"
 #include "DepthCounterNode.hpp"
 #include <vector>
+#include "constants.hpp"
 
 namespace phuffman {
     typedef std::vector<Code> Codes;
