@@ -1,6 +1,12 @@
 #include "DepthCounterNode.hpp"
+#include <cassert>
 
 DepthCounterNode::DepthCounterNode(DepthCounterNode* l, DepthCounterNode* r) : isLeaf(false), left(l), right(r) {
+    assert(left != NULL);
+    assert(right != NULL);
+    assert(left != right);
+    assert(left != this);
+    assert(right != this);
     left->incDepth();
     right->incDepth();
 }
