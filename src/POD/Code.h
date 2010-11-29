@@ -7,9 +7,6 @@ struct Code {
     unsigned char code;
 };
 
-Code CodeMake(unsigned char codelength, unsigned char code) {
-    Code c = {codelength, code};
-    return c;
-}
+struct Code CodeMake(unsigned char codelength, unsigned char code);
 
 #endif /* _CODE_H_ */
