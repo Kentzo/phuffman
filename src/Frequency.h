@@ -4,11 +4,15 @@
 
 #include "stddef.h"
 
-struct Frequency {
+typedef struct {
     unsigned char symbol;
     size_t frequency;
-};
+} Frequency;
 
-struct Frequency FrequencyMake(unsigned char symbol, size_t frequency);
+#ifndef __OPENCL_VERSION__
+
+Frequency FrequencyMake(unsigned char symbol, size_t frequency);
+
+#endif /* __OPENCL_VERSION__ */
 
 #endif /* _FREQUENCY_H_ */
