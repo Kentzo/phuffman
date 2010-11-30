@@ -5,12 +5,11 @@
 
 using namespace std;
 using namespace phuffman;
-using namespace phuffman::constants;
 
 //extern "C" Row* runEncode(unsigned char* a_data, size_t len, Row a_table[256]);
 
 void PrintCodesTable(const CodesTableAdapter& table) {
-    for (size_t i=0; i<table.size(); ++i) {
+    for (size_t i=0; i<ALPHABET_SIZE; ++i) {
         if (table[i].codelength > 0) {
             cout << (char)i << '\t' << (int)table[i].code << ' ' << (int)table[i].codelength << endl;
         }
@@ -18,7 +17,10 @@ void PrintCodesTable(const CodesTableAdapter& table) {
 }
 
 int main() {
-    const unsigned char test[] = "123";
+    unsigned char test[ALPHABET_SIZE] = {0};
+    for (size_t i=0; i<ALPHABET_SIZE; ++i) {
+    	test[i] = i;
+    }
     cout << test << endl;
     cout << "Build codes table from string" << endl;
     CodesTableAdapter codes(test, sizeof(test)/sizeof(unsigned char)-1);
@@ -27,12 +29,10 @@ int main() {
     ss << codes;
     ss.seekg(0, ios_base::beg);
 
-    uint16_t size = 0;
-    ss >> size;
-    char* file_data = new char[size];
-    ss.read(file_data, size);
+    char* file_data = new char[ALPHABET_SIZE];
+    ss.read(file_data, ALPHABET_SIZE);
     cout << "Build codes table from file data" << endl;
-    CodesTableAdapter cc(file_data, size);
+    CodesTableAdapter cc(file_data, ALPHABET_SIZE);
     PrintCodesTable(cc);
     cout << "Codes Tables are equal: " << (codes == cc) << endl;
     /*
