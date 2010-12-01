@@ -1,5 +1,5 @@
 #include "CodesTableAdapter.hpp"
-#include "constants.hpp"
+#include "constants.h"
 #include <cassert>
 #include <cstring>
 #include <algorithm>
@@ -18,22 +18,19 @@ namespace phuffman {
     }
 
     CodesTableAdapter::CodesTableAdapter(const char *file_data, size_t size) {
-        assert(size <= constants::ALPHABET_SIZE);
-        assert(size > 0);
+        assert(size == ALPHABET_SIZE);
 
-        adaptee.codes = new Code[constants::ALPHABET_SIZE];
-        adaptee.size = constants::ALPHABET_SIZE;
-        memset(adaptee.codes, 0, sizeof(Code)*constants::ALPHABET_SIZE);
+        memset(adaptee.codes, 0, sizeof(Code)*ALPHABET_SIZE);
 
-        unsigned char lengths[constants::ALPHABET_SIZE];
+        unsigned char lengths[ALPHABET_SIZE];
         for (size_t i=0; i<size; ++i) {
             lengths[i] = file_data[i];
         }
 
         Nodes leaves;
-        for (size_t i=0; i<constants::ALPHABET_SIZE; ++i) {
+        for (size_t i=0; i<ALPHABET_SIZE; ++i) {
             if (lengths[i] > 0) {
-                assert(lengths[i] < constants::MAXIMUM_CODELENGTH);
+                assert(lengths[i] < MAXIMUM_CODELENGTH);
                 DepthCounterNode* leaf = new DepthCounterNode(i);
                 leaf->depth = lengths[i];
                 leaves.push_back(leaf);
@@ -53,12 +50,9 @@ namespace phuffman {
     }
 
     CodesTableAdapter::CodesTableAdapter(const unsigned char *data, size_t size) {
-        assert(size <= constants::MAXIMUM_DATABLOCK_SIZE);
-        assert(size > 0);
+        assert(size <= MAXIMUM_DATABLOCK_SIZE);
 
-        adaptee.codes = new Code[constants::ALPHABET_SIZE];
-        adaptee.size = constants::ALPHABET_SIZE;
-        memset(adaptee.codes, 0, sizeof(Code)*constants::ALPHABET_SIZE);
+        memset(adaptee.codes, 0, sizeof(Code)*ALPHABET_SIZE);
 
         Tree tree;
         Nodes leaves;
@@ -92,24 +86,18 @@ namespace phuffman {
         delete root;
     }
 
-    CodesTableAdapter::~CodesTableAdapter() {
-        delete[] adaptee.codes;
-    }
+    CodesTableAdapter::~CodesTableAdapter() {}
 
     CodesTableInfo CodesTableAdapter::info() const {
         return adaptee.info;
     }
 
-    Code CodesTableAdapter::operator[](uint16_t index) const {
+    Code CodesTableAdapter::operator[](size_t index) const {
         return at(index);
     }
 
-    uint16_t CodesTableAdapter::size() const {
-        return adaptee.size;
-    }
-
-    Code CodesTableAdapter::at(uint16_t index) const {
-        assert(index < adaptee.size);
+    Code CodesTableAdapter::at(size_t index) const {
+        assert(index < ALPHABET_SIZE);
         return adaptee.codes[index];
     }
 
@@ -118,14 +106,14 @@ namespace phuffman {
     }
 
     std::vector<Frequency> CodesTableAdapter::_countFrequencies(const unsigned char* data, size_t size) const {
-        size_t freqs[constants::ALPHABET_SIZE] = {0};
+        size_t freqs[ALPHABET_SIZE] = {0};
         for (size_t i=0; i<size; ++i) {
             unsigned char symbol = data[i];
             ++freqs[symbol];
         }
         Frequencies frequencies;
-        frequencies.reserve(constants::ALPHABET_SIZE);
-        for (size_t i=0; i<constants::ALPHABET_SIZE; ++i) {
+        frequencies.reserve(ALPHABET_SIZE);
+        for (size_t i=0; i<ALPHABET_SIZE; ++i) {
             if (freqs[i] > 0) {
                 frequencies.push_back(FrequencyMake(i, freqs[i]));
             }
@@ -174,29 +162,23 @@ namespace phuffman {
                 lastCode.code = (lastCode.code + 1) >> (lastCode.codelength - (*currentNode)->depth);
             }
             lastCode.codelength = (*currentNode)->depth;
-            assert(lastCode.codelength < constants::MAXIMUM_CODELENGTH);
+            assert(lastCode.codelength < MAXIMUM_CODELENGTH);
             adaptee.codes[(*currentNode)->element] = lastCode;
             ++currentNode;
         }
     }
 
     std::ostream& operator<<(std::ostream& os, const CodesTableAdapter& table) {
-        os << table.size();
-        for (size_t i=0, size=table.size(); i<size; ++i) {
+        for (size_t i=0, size=ALPHABET_SIZE; i<size; ++i) {
             os << table[i].codelength;
         }
         return os;
     }
 
     bool operator==(const CodesTableAdapter& left, const CodesTableAdapter& right) {
-        if(left.size() != right.size()) {
-            return false;
-        }
-        else {
-            const CodesTable* leftTable = left.c_table();
-            const CodesTable* rightTable = right.c_table();
-            return (memcmp(leftTable->codes, rightTable->codes, left.size()) == 0);
-        }
+		const CodesTable* leftTable = left.c_table();
+		const CodesTable* rightTable = right.c_table();
+		return (memcmp(leftTable->codes, rightTable->codes, sizeof(Code)*ALPHABET_SIZE) == 0);
     }
 
 }

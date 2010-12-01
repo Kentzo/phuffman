@@ -3,7 +3,8 @@
 #define _PHUFFMAN_H_
 
 #include "CodesTableAdapter.hpp"
-#include "constants.hpp"
+#include "constants.h"
+#include "POD.h"
 
 namespace phuffman {
 }
