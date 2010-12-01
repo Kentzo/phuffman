@@ -6,6 +6,7 @@
 #include "DepthCounterNode.hpp"
 #include <vector>
 #include <map>
+#include <iostream>
 
 namespace phuffman {
 
