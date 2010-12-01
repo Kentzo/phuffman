@@ -20,9 +20,8 @@ public:
     ~CodesTableAdapter();
 
     CodesTableInfo info() const;
-    Code operator[](uint16_t index) const;
-    Code at(uint16_t index) const;
-    uint16_t size() const;
+    Code operator[](size_t index) const;
+    Code at(size_t index) const;
     const CodesTable* c_table() const;
 
 private:

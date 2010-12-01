@@ -4,12 +4,11 @@
 
 #include "CodesTableInfo.h"
 #include "Code.h"
-#include "stdint.h"
+#include "constants.h"
 
-struct CodesTable {
-    uint16_t size;
-    Code *codes;
+typedef struct {
+    Code codes[ALPHABET_SIZE];
     CodesTableInfo info;
-};
+} CodesTable;
 
 #endif /* CODESTABLE_H_ */
