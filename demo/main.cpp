@@ -8,7 +8,7 @@ using namespace phuffman;
 
 //extern "C" Row* runEncode(unsigned char* a_data, size_t len, Row a_table[256]);
 
-void PrintCodesTable(const CodesTableAdapter& table) {
+void PrintCodesTable(const CodeTableAdapter& table) {
     for (size_t i=0; i<ALPHABET_SIZE; ++i) {
         if (table[i].codelength > 0) {
             cout << (char)i << '\t' << (int)table[i].code << ' ' << (int)table[i].codelength << endl;
@@ -23,7 +23,7 @@ int main() {
     }
     cout << test << endl;
     cout << "Build codes table from string" << endl;
-    CodesTableAdapter codes(test, sizeof(test)/sizeof(unsigned char)-1);
+    CodeTableAdapter codes(test, sizeof(test)/sizeof(unsigned char)-1);
     PrintCodesTable(codes);
     stringstream ss;
     ss << codes;
@@ -32,7 +32,7 @@ int main() {
     char* file_data = new char[ALPHABET_SIZE];
     ss.read(file_data, ALPHABET_SIZE);
     cout << "Build codes table from file data" << endl;
-    CodesTableAdapter cc(file_data, ALPHABET_SIZE);
+    CodeTableAdapter cc(file_data, ALPHABET_SIZE);
     PrintCodesTable(cc);
     cout << "Codes Tables are equal: " << (codes == cc) << endl;
     /*
