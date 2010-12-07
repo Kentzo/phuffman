@@ -9,19 +9,19 @@
 
 namespace phuffman {
 
-class CodesTableAdapter {
-    CodesTableAdapter();
-    CodesTableAdapter(const CodesTableAdapter&);
-    CodesTableAdapter& operator=(const CodesTableAdapter&);
+class CodeTableAdapter {
+    CodeTableAdapter();
+    CodeTableAdapter(const CodeTableAdapter&);
+    CodeTableAdapter& operator=(const CodeTableAdapter&);
 public:
-    explicit CodesTableAdapter(const unsigned char* data, size_t size);
-    explicit CodesTableAdapter(const char* file_data, size_t size);
-    ~CodesTableAdapter();
+    explicit CodeTableAdapter(const unsigned char* data, size_t size);
+    explicit CodeTableAdapter(const char* file_data, size_t size);
+    ~CodeTableAdapter();
 
-    CodesTableInfo info() const;
+    CodeTableInfo info() const;
     Code operator[](size_t index) const;
     Code at(size_t index) const;
-    const CodesTable* c_table() const;
+    const CodeTable* c_table() const;
 
 private:
     typedef std::vector<Frequency> Frequencies;
@@ -32,12 +32,12 @@ private:
     void _buildTable(const Nodes& leaves);
 
 private:
-    CodesTable adaptee;
+    CodeTable _adaptee;
 };
 
-std::ostream& operator<<(std::ostream& os, const CodesTableAdapter& table);
+std::ostream& operator<<(std::ostream& os, const CodeTableAdapter& table);
 
-bool operator==(const CodesTableAdapter& left, const CodesTableAdapter& right);
+bool operator==(const CodeTableAdapter& left, const CodeTableAdapter& right);
 
 }
 

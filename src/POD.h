@@ -2,17 +2,9 @@
 #ifndef POD_H_
 #define POD_H_
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "Code.h"
-#include "CodesTable.h"
+#include "CodeTable.h"
 #include "Frequency.h"
-#include "CodesTableInfo.h"
-
-#ifdef __cplusplus
-}
-#endif
+#include "CodeTableInfo.h"
 
 #endif /* POD_H_ */

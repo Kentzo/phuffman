@@ -2,7 +2,7 @@
 #ifndef _PHUFFMAN_H_
 #define _PHUFFMAN_H_
 
-#include "CodesTableAdapter.hpp"
+#include "CodeTableAdapter.hpp"
 #include "constants.h"
 #include "POD.h"
 
