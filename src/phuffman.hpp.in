@@ -1,0 +1,13 @@
+#pragma once
+#ifndef _PHUFFMAN_H_
+#define _PHUFFMAN_H_
+
+#include "CodeTableAdapter.hpp"
+#include "constants.h"
+#include "POD.h"
+
+${OPENCL_HEADER}
+
+${CUDA_HEADER}
+
+#endif /* _PHUFFMAN_H_ */

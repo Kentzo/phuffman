@@ -1,0 +1,107 @@
+#include <fstream>
+#include <utility>
+#include <cassert>
+#include <cmath>
+#include <stdexcept>
+#include "CodeTableAdapter.hpp"
+#include "cl.hpp"
+
+using namespace std;
+
+namespace phuffman {
+    namespace opencl {
+        using namespace cl; // size_t is redefined as a structure...
+        using std::size_t;
+        using std::string;
+
+        void _BuildKernels(Context* context, Program* program, CommandQueue* queue) {
+
+            char* source = NULL;
+            size_t source_size = 0;
+            {
+                ifstream source_file("${OPENCL_KERNELS}");
+                if (source_file.is_open()) {
+                    source_file.seekg(0, ios_base::end);
+                    size_t size = source_file.tellg();
+                    source_file.seekg(0, ios_base::beg);
+                    source = new char[size];
+                    source_file.read(source, size);
+                    source_size = size;
+                }
+                else {
+                    // Kernel source cannot be read
+                    throw runtime_error("Kernel file ('" "${OPENCL_KERNELS}" "') doesn't exist");
+                }
+            }
+
+            // Setup OpenCL
+            VECTOR_CLASS<Platform> platforms;
+            Platform::get(&platforms);
+            assert(platforms.size()); // No platform found
+            // The OpenCL standard 1.0 doesn't guarentee that context will be created if no platofm is provided
+            cl_context_properties properties[] = {CL_CONTEXT_PLATFORM, (cl_context_properties)platforms[0](), 0};
+            *context = Context(CL_DEVICE_TYPE_ALL, properties);
+			VECTOR_CLASS<Device> devices = context->getInfo<CL_CONTEXT_DEVICES>();
+            assert(devices.size()); // No device found
+			Program::Sources sources(1, make_pair(source, source_size));
+			*program = Program(*context, sources);
+			*queue = CommandQueue(*context, devices[0]);
+			program->build(devices, "-I " "${OPENCL_KERNELS_INCLUDE}");
+        }
+
+        void _EncodeWithCodelengths(const CommandQueue& queue, const Program& program, const Buffer& device_data, const Buffer& device_codes, const Buffer& device_addresses) 
+        {
+            static const size_t MINIMUM_ITEMS_PER_THREAD = 32;
+            static const char* ENCODE_WITH_CODELENGTHS_FUNCTION_NAME = "EncodeWithCodelengths";
+
+            Device device;
+            queue.getInfo(CL_QUEUE_DEVICE, &device);
+            size_t data_size = 0;
+            device_data.getInfo(CL_MEM_SIZE, &data_size);
+
+            size_t max_work_item_sizes[3] = {1, 1, 1};
+            device.getInfo(CL_DEVICE_MAX_WORK_ITEM_SIZES, &max_work_item_sizes);
+
+            assert(max_work_item_sizes[0] > 0); // Provided device doesn't support OpenCL
+            NDRange work_group_range(1), work_item_range(max_work_item_sizes[0], 1, 1);
+            size_t items_per_thread = max(MINIMUM_ITEMS_PER_THREAD, size_t(ceilf((float)data_size / max_work_item_sizes[0])));
+
+            Kernel kernel(program, ENCODE_WITH_CODELENGTHS_FUNCTION_NAME);
+            KernelFunctor EncodeWithCodelengths = kernel.bind(queue, work_group_range, work_item_range);
+            
+            EncodeWithCodelengths(device_data, device_addresses, device_codes, items_per_thread, data_size).wait();
+        }
+
+        void Encode(const unsigned char* data, size_t data_size, unsigned char** result, size_t* result_size, const CodeTableAdapter& codes_table) {
+            assert(data != NULL);
+            assert(data_size > 0);
+            assert(result != NULL);
+            assert(result_size != NULL);
+
+            Context context;
+            Program program;
+            CommandQueue queue;
+            _BuildKernels(&context, &program, &queue);
+
+            // Setup memory objects
+            Buffer device_data(context, CL_MEM_READ_ONLY, data_size);
+            queue.enqueueWriteBuffer(device_data, CL_TRUE, 0, data_size, data);
+            Buffer device_codes(context, CL_MEM_READ_ONLY, ALPHABET_SIZE * sizeof(Code));
+            queue.enqueueWriteBuffer(device_codes, CL_TRUE, 0, ALPHABET_SIZE * sizeof(Code), codes_table.c_table()->codes);
+            Buffer device_addresses(context, CL_MEM_READ_WRITE, data_size * sizeof(unsigned int));
+            
+            // Start encoding
+            _EncodeWithCodelengths(queue, program, device_data, device_codes, device_addresses);
+
+            // Return results
+            *result_size = data_size * sizeof(unsigned int);
+            *result = new unsigned char[*result_size];
+            queue.enqueueReadBuffer(device_addresses, CL_TRUE, 0, *result_size, *result);
+        }
+
+        void Encode(const unsigned char* data, size_t data_size, unsigned char** result, size_t* result_size) {
+        	CodeTableAdapter codes_table(data, data_size);
+        	Encode(data, data_size, result, result_size, codes_table);
+        }
+    }
+}

@@ -1,4 +1,6 @@
 #include "cl.hpp"
+
+#ifdef __VERBOSE
 #include <iostream>
 
 namespace phuffman {
@@ -8,3 +10,6 @@ namespace phuffman {
     namespace cuda {
     }
 }
+#else // __VERBOSE
+#define LOG(...) {}
+#endif // __VERBOSE

@@ -2,7 +2,6 @@
 #include <iostream>
 #include <sstream>
 
-
 using namespace std;
 using namespace phuffman;
 
@@ -46,7 +45,7 @@ int main() {
     try {
         unsigned char* result = NULL;
         size_t result_size = 0;
-        opencl::Encode(test, test_size, &result, &result_size);
+        phuffman::opencl::Encode(test, test_size, &result, &result_size);
         delete[] result;
     }
     catch(cl::Error err) {
