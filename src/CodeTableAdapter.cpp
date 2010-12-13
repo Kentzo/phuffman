@@ -141,30 +141,30 @@ namespace phuffman {
     }
 
     void CodeTableAdapter::_buildTable(const Nodes& leaves) {
-        Nodes::const_iterator currentNode = leaves.begin(), lastNode = leaves.end();
+        Nodes::const_iterator current_node = leaves.begin(), lastNode = leaves.end();
         // First longest element always has 0 code
-        _adaptee.info.max_codelength = (*currentNode)->depth;
-        Code lastCode = CodeMake((*currentNode)->depth, 0);
-        _adaptee.codes[(*currentNode)->element] = lastCode;
-        ++currentNode;
+        _adaptee.info.max_codelength = (*current_node)->depth;
+        Code last_code = CodeMake((*current_node)->depth, 0);
+        _adaptee.codes[(*current_node)->element] = last_code;
+        ++current_node;
 
-        while (currentNode != lastNode) {
+        while (current_node != lastNode) {
             // If current codeword and next codeword have equal lengths
-            if ((*currentNode)->depth == lastCode.codelength) {
+            if ((*current_node)->depth == last_code.codelength) {
                 // Just increase codeword by 1
-                lastCode.code += 1;
+                last_code.code += 1;
             }
             // Otherwise
             else {
                 // We are iterating from longest to shortest code lengths
-                assert(lastCode.codelength > (*currentNode)->depth);
+                assert(last_code.codelength > (*current_node)->depth);
                 // Increase codeword by 1 and _after_ that shift codeword right
-                lastCode.code = (lastCode.code + 1) >> (lastCode.codelength - (*currentNode)->depth);
+                last_code.code = (last_code.code + 1) >> (last_code.codelength - (*current_node)->depth);
             }
-            lastCode.codelength = (*currentNode)->depth;
-            assert(lastCode.codelength < MAXIMUM_CODELENGTH);
-            _adaptee.codes[(*currentNode)->element] = lastCode;
-            ++currentNode;
+            last_code.codelength = (*current_node)->depth;
+            assert(last_code.codelength < MAXIMUM_CODELENGTH);
+            _adaptee.codes[(*current_node)->element] = last_code;
+            ++current_node;
         }
     }
 
@@ -176,9 +176,9 @@ namespace phuffman {
     }
 
     bool operator==(const CodeTableAdapter& left, const CodeTableAdapter& right) {
-		const CodeTable* leftTable = left.c_table();
-		const CodeTable* rightTable = right.c_table();
-		return (memcmp(leftTable->codes, rightTable->codes, sizeof(Code)*ALPHABET_SIZE) == 0);
+		const CodeTable* left_table = left.c_table();
+		const CodeTable* right_table = right.c_table();
+		return (memcmp(left_table->codes, right_table->codes, sizeof(Code)*ALPHABET_SIZE) == 0);
     }
 
 }
