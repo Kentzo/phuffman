@@ -4,6 +4,6 @@ include_directories(/home/dlyfar/NVIDIA_GPU_Computing_SDK/C/common/inc ${PHUFFMA
 
 
 CUDA_ADD_LIBRARY(cuda_encode
-  encode.cu
+  encode.cu  
   STATIC
   )

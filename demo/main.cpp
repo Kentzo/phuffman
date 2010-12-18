@@ -17,23 +17,24 @@ void PrintCodesTable(const CodesTableAdapter& table) {
 }
 
 int main() {
-const  size_t dlen = ALPHABET_SIZE;
-    unsigned char test[dlen] = {0};
-    for (size_t i=0; i<dlen; ++i) {
+  const  size_t dlen = ALPHABET_SIZE*1024*1;
+  unsigned char* test = new unsigned char[dlen];//{0};
+  for (size_t i=0; i<dlen; ++i) {
     	test[i] = i;
     }
 
-    CodesTableAdapter codes(test, sizeof(test)/sizeof(unsigned char)-1);
+    CodesTableAdapter codes(test, dlen);
     unsigned char* result = new unsigned char[codes.c_table()->info.maximum_codelength * dlen];
     size_t resLen = 0;
     runEncode(test, dlen, *codes.c_table(), result, &resLen);
 
     cout << "Table CPU:" << endl;
     for (size_t i = 0; i < dlen; ++i) {
-      cout << (int)test[i] << " " << (int)codes[test[i]].codelength << endl;
+      //            cout << (int)test[i] << " " << (int)codes[test[i]].codelength << endl;
     }
     
     delete [] result;
+    delete [] test;
 
     //cout << test << endl;
     //cout << "Build codes table from string" << endl;
