@@ -13,70 +13,128 @@
 
 __constant__ Code codes[ALPHABET_SIZE];
 
-__global__ void length_encode(unsigned char* a_data, unsigned int* a_result, unsigned int num, unsigned int totalSize)
-{  
+__device__ int4 left_shift_int4(int4 a_value, unsigned int a_num)
+{
+    int w_l = a_value.w << (a_num % 32);
+    int w_h = a_value.w >> (32 - (a_num % 32));
+
+    int z_l = a_value.z << (a_num % 32);
+    int z_h = a_value.z >> (32 - (a_num % 32));
+
+    int y_l = a_value.y << (a_num % 32);
+    int y_h = a_value.y >> (32 - (a_num % 32));
+
+    int x_l = a_value.x << (a_num % 32);
+
+    if (a_num <= 32) {
+        a_value = make_int4(x_l | y_h, y_l | z_h, z_l | w_h, w_l);
+    }
+    else if (a_num > 32 && a_num <= 64) {
+        a_value = make_int4(y_l | z_h, z_l | w_h, w_l, 0);
+    }
+    else if (a_num > 64 && a_num <= 96) {
+        a_value = make_int4(z_l | w_h, w_l, 0, 0);
+    }
+    else {
+        a_value = make_int4(w_l, 0, 0, 0);
+    }
+
+    return a_value;
+}
+
+__device__ int4 right_shift_int4(int4 a_value, unsigned int a_num)
+{
+    int w_h = a_value.w >> (a_num % 32);
+
+    int z_h = a_value.z >> (a_num % 32);
+    int z_l = a_value.z << (32 - (a_num % 32));
+
+    int y_h = a_value.y >> (a_num % 32);
+    int y_l = a_value.y << (32 - (a_num % 32));
+
+    int x_h = a_value.x >> (a_num % 32);
+    int x_l = a_value.x << (32 - (a_num %32));
+
+    if (a_num <= 32) {
+        a_value = make_int4(x_h, y_h | x_l, z_h | y_l, w_h | z_l);
+    }
+    else if (a_num > 32 && a_num <= 64) {
+        a_value = make_int4(0, x_h, y_h | x_l, z_h | y_l);
+    }
+    else if (a_num > 64 && a_num <= 96) {
+        a_value = make_int4(0, 0, x_h, y_h | x_l);
+    }
+    else {
+        a_value = make_int4(0, 0, 0, x_h);
+    }
+
+    return a_value;
+}
+
+__device__ int4 or_int4(int4 a_value1, int4 a_value2)
+{
+    return make_int4(a_value1.x | a_value2.x, a_value1.y | a_value2.y, a_value1.z | a_value2.z, a_value1.w | a_value2.w);
+}
+
+__device__ void merge_int4(int4 a_value1, int a_value1_zeroes, int4 a_value2, int a_value2_zeroes, int4 (*result)[2]) {
+    int4 a_value2_h = right_shift_int4(a_value2, sizeof(int4) - a_value1_zeroes);
+    int4 a_value2_l = left_shift_int4(a_value2, a_value1_zeroes);
+    *result[0] = or_int4(a_value1, a_value2_h);
+    *result[1] = a_value2_l;
+}
+
+
+
+__global__ void length_encode(unsigned char* a_data, unsigned int a_data_len, unsigned int* a_result, unsigned int num_to_process)
+{
   unsigned int bx = threadIdx.x;
-  unsigned int by = threadIdx.y;		       
-  unsigned int bz = threadIdx.z;
-  unsigned int by_size = blockDim.y;	       
-  unsigned int bz_size = blockDim.z;  
-  unsigned int idx = min((bx*by_size*bz_size + by*bz_size + bz) * num, totalSize);
-  unsigned int size = min(idx + num, totalSize);
+  unsigned int b_idx = min(bx * num_to_process, a_data_len);
+  unsigned int e_idx = min(b_idx + num_to_process, a_data_len);
   //  cuPrintf("[%i %i)\n", idx, size);
-  for(; idx<size; ++idx) {		       
-    unsigned char c = a_data[idx];
-    a_result[idx] = codes[c].codelength;
+  for(; b_idx < e_idx; ++b_idx) {
+    unsigned char c = a_data[b_idx];
+    a_result[b_idx] = codes[c].codelength;
     //cuPrintf("[%i %i %i] %i\n", );
   }
 }
 
-extern "C" {
+__global__ void encode(unsigned char* a_data, unsigned int a_data_len, unsigned char* a_prefix, unsigned int num_to_process)
+{
+    unsigned int bx = threadIdx.x;
+    const int NUM_OF_SYM = 5;
+    for (int block_idx = 0; block_idx < num_to_process; block_idx += NUM_OF_SYM) {
+        unsigned int b_idx = min(bx * num_to_process + block_idx, a_data_len);
+        unsigned int e_idx = min(b_idx + NUM_OF_SYM, a_data_len);
 
-  void _Sizes(size_t data_size, CUdevice device, size_t* items_per_thread, dim3* grid_range, dim3* block_range) {
-    
-    CUdevprop properties;
-    cuDeviceGetProperties(&properties, device);
-    // Retrieve maximum values for calculated parameters
-    int max_grid_size = properties.maxGridSize[0];
-    
-    int max_block_dimensions = 3;
-
-    int* max_block_sizes = properties.maxThreadsDim;
-
-    // Begin calculating
-    int threads_num = size_t(ceilf(float(data_size) / *items_per_thread));
-
-    if (threads_num > 0) {
-      // Calculate work group size and appropriate value for items_per_thread
-      int max_blocks_per_grid = 1;
-      for (int i=0; i<max_block_dimensions; ++i) {
-	max_blocks_per_grid *= max_block_sizes[i];
-      }         
-      int grid_size = size_t(ceilf(float(threads_num) / max_blocks_per_grid));
-      // Calculate appropriate value for items_per_thread
-      while (grid_size > max_grid_size) {
-	(*items_per_thread) <<= 1;
-	threads_num = size_t(ceilf(float(data_size) / *items_per_thread));
-	grid_size = size_t(ceilf(float(threads_num) / max_blocks_per_grid));
-      }
-      // Calculate work item sizes
-      threads_num = size_t(ceilf(float(threads_num) / grid_size));
-      int block_sizes[3] = {1, 1, 1};
-      for (int i=0; i<max_block_dimensions && threads_num>0; ++i) {
-	int size = min(max_block_sizes[i], threads_num);
-	printf("dim %i %i\n", i, size);
-	block_sizes[i] = size;
-	threads_num = ceilf((float)threads_num / size);
-	// x * y * z >= threads_num
-      }
-
-      *grid_range = dim3(grid_size, 1, 1);
-      *block_range = dim3(block_sizes[0], block_sizes[1], block_sizes[2]);
-    } else {
-      *grid_range = dim3(0, 0, 0);
-      *block_range = dim3(0, 0, 0);
+        // Encode
+        int4 buf[2];
+        int buf_idx = 0; // buffer index
+        int x = 0;
+        int y = 0;
+        for (int j = b_idx; j < e_idx; ++j) {
+            unsigned char c = a_data[j];
+            x = sizeof(int4) - codes[c].codelength - y;
+            if (x >= 0) {
+                x = 0;
+                buf[buf_idx] = or_int4(buf[buf_idx],
+                        left_shift_int4(make_int4(0, 0, 0, codes[c].code), sizeof(int4) - codes[c].codelength - y));
+                y += codes[c].codelength;
+            }
+            else {
+                x = -x;
+                int4 code = left_shift_int4(make_int4(0, 0, 0, codes[c].code), sizeof(int4) - codes[c].codelength);
+                merge_int4(buf[0], sizeof(int4) - y, code, sizeof(int4) - codes[c].codelength, &buf);
+                /*int2 high_bits = make_int2(0, codes[c].code) >> x;
+                int2 low_bits = make_int2(0, code[c].code) << sizeof(int2) - x;
+                buf[buf_idx] |= high_bits;
+                buf[buf_idx+1] |= low_bits;*/
+                ++buf_idx;
+            }
+        }
     }
-  }
+}
+
+extern "C" {
 
   void runEncode(unsigned char* a_data, size_t len, CodesTable a_table, unsigned char* result, size_t* result_len)
   {
@@ -96,12 +154,6 @@ extern "C" {
     CUdevice device;
     dim3 grid_range(1,1,1);
     dim3 block_range(512,1,1);
-    //cuDeviceGet(&device, deviceCount - 1);
-    //_Sizes(len, device, &num, &grid_range, &block_range);
-
-    printf("Grid range: %i %i %i\n", grid_range.x, grid_range.y, grid_range.z);
-    printf("Block range: %i %i %i\n", block_range.x, block_range.y, block_range.z);
-    printf("Items per thread: %i\n", num);
 
     cutilSafeCall(cudaMemcpyToSymbol(codes, a_table.codes, ALPHABET_SIZE * sizeof(Code)));
     void* devData = NULL;
@@ -116,10 +168,12 @@ extern "C" {
       cutilSafeCall(cudaMalloc(&devResult, dataLen*maxCodeLen));
       cutilSafeCall(cudaMemcpy(devData, a_data, dataLen, cudaMemcpyHostToDevice));
 
-      length_encode<<<grid_range, block_range>>>((unsigned char*)devData, (unsigned int*)devResultAddr, num, dataLen);
+      length_encode<<<grid_range, block_range>>>((unsigned char*)devData, dataLen, (unsigned int*)devResultAddr, num);
       
       thrust::device_ptr<unsigned int> devPtr((unsigned int*)devResultAddr);
       thrust::inclusive_scan(devPtr, devPtr + dataLen, devPtr);
+
+
 
       cudaPrintfDisplay(stdout, true); 
       cudaPrintfEnd();
