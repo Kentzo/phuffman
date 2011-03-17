@@ -1,12 +1,7 @@
 #pragma once
-#ifndef _PHUFFMAN_H_
-#define _PHUFFMAN_H_
 
 #include "CodesTableAdapter.hpp"
 #include "constants.h"
 #include "POD.h"
+#include "CUDA/encode.hpp"
 
-namespace phuffman {
-}
-
-#endif /* _PHUFFMAN_H_ */
