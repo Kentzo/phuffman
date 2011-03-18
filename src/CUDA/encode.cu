@@ -15,22 +15,22 @@
 
 namespace phuffman {
     namespace CUDA {
-        using thrust::device_ptr;
         using thrust::transform;
         using thrust::device_vector;
         using thrust::exclusive_scan;
         using thrust::for_each;
-        using thrust::make_tuple;
-        using thrust::get;
         using thrust::remove_if;
+        using thrust::zip_iterator;
         using thrust::make_zip_iterator;
         using thrust::tuple;
+        using thrust::make_tuple;
+        using thrust::get;
         using std::cerr;
         using std::endl;
-        typedef thrust::zip_iterator<tuple<device_vector<unsigned char>::iterator, device_vector<unsigned int>::iterator> > CharPosIterator;
-        typedef thrust::tuple<unsigned char, unsigned int> CharPos;
-        typedef thrust::device_vector<unsigned char> DevData;
-        typedef thrust::device_vector<unsigned int> DevPrefixSum;
+        typedef zip_iterator<tuple<device_vector<unsigned char>::iterator, device_vector<unsigned int>::iterator> > CharPosIterator;
+        typedef tuple<unsigned char, unsigned int> CharPos;
+        typedef device_vector<unsigned char> DevData;
+        typedef device_vector<unsigned int> DevPrefixSum;
 
         __constant__ Code _CODES[ALPHABET_SIZE];
 
@@ -54,7 +54,7 @@ namespace phuffman {
 
             /*!
               @abstract Merges code of a given symbol into the device global memory at a given position.
-              @param tuple A tuple that represents current symbol and position of its code at the device global memory.
+              @param tuple A tuple that represents current symbol and position of its code at the result bit array.
             */
             __device__ void operator()(const CharPos& tuple) {
                 Code code = _CODES[get<0>(tuple)];
@@ -65,28 +65,22 @@ namespace phuffman {
             }
         };
 
-        struct _IsConflictBlock {
-            unsigned int _block_size_bit;
-
-            _IsConflictBlock(unsigned int block_size) : _block_size_bit(bytes_to_bits(block_size)) {}
-            __device__ bool operator()(const CharPos& tuple) {
-                unsigned int start_block_idx = get<1>(tuple)/_block_size_bit;
-                unsigned int code_address_end = get<1>(tuple) + _CODES[get<0>(tuple)].codelength;
-                unsigned int end_block_idx = code_address_end / _block_size_bit;
-                return start_block_idx != end_block_idx || (code_address_end % _block_size_bit) == 0;
-            }
-        };
-
         struct _CalcOffset {
             unsigned int _block_size_bit;
+            unsigned char* _block_offsets;
 
-            _CalcOffset(unsigned int block_size) : _block_size_bit(bytes_to_bits(block_size)) {}
-            __device__ unsigned char operator()(CharPos tuple) {
-                return (get<1>(tuple) + _CODES[get<0>(tuple)].codelength) % _block_size_bit;
+            _CalcOffset(unsigned int block_size, unsigned char* block_offsets) : _block_size_bit(bytes_to_bits(block_size)), _block_offsets(block_offsets) {}
+            __device__ void operator()(const CharPos& tuple) {
+                size_t start_block_idx = get<1>(tuple) / _block_size_bit;
+                unsigned int code_address_end = get<1>(tuple) + _CODES[get<0>(tuple)].codelength;
+                size_t end_block_idx = code_address_end / _block_size_bit;
+                if (start_block_idx != end_block_idx) {
+                    _block_offsets[start_block_idx] = code_address_end % _block_size_bit;
+                }
             }
         };
 
-        void Encode(unsigned char* data, size_t length, CodesTable codes_table, unsigned int** result, size_t* result_length, size_t* result_length_bit,
+        void Encode(unsigned char* data, size_t data_length, CodesTable codes_table, unsigned int** result, size_t* result_length, size_t* result_length_bit,
                            unsigned int block_size /*= 0*/, unsigned char** block_offsets /*= NULL*/, size_t* block_offsets_length /*= NULL*/)
         {
             cudaError_t error = cudaSuccess;
@@ -96,49 +90,59 @@ namespace phuffman {
                 throw error;
             }
 
-            // Calculate Exclusive Prefix Sum
-            DevData dev_data(data, data + length);
-            DevPrefixSum dev_prefix_sum(length, 0);
-            transform(dev_data.begin(), dev_data.end(), dev_prefix_sum.begin(), _LengthEncode());
-            exclusive_scan(dev_prefix_sum.begin(), dev_prefix_sum.end(), dev_prefix_sum.begin());
-
             unsigned int* dev_result = NULL;
+            unsigned char* dev_block_offsets = NULL;
             try {
-                // Encode Data
-                // As we use exclusive prefix sum, we need to add the length of the last element manually
-                size_t dev_result_length = dev_prefix_sum.back() + codes_table.codes[*(data + length - 1)].codelength; // bits
-                dev_result_length = ceilf(static_cast<float>(dev_result_length) / UINT2_BIT) + 1; // uint2
+// Calculate Exclusive Prefix Sum
+                DevData dev_data(data, data + data_length);
+                DevPrefixSum dev_prefix_sum(data_length, 0);
+                transform(dev_data.begin(), dev_data.end(), dev_prefix_sum.begin(), _LengthEncode());
+                exclusive_scan(dev_prefix_sum.begin(), dev_prefix_sum.end(), dev_prefix_sum.begin());
+                *result_length_bit = dev_prefix_sum.back() + codes_table.codes[*(data + data_length - 1)].codelength;
+
+// Encode Data
+                size_t dev_result_length = ceilf(static_cast<float>(*result_length_bit) / UINT2_BIT) + 1; // uint2
                 dev_result_length *= sizeof(uint2); // bytes
 
                 if ((error = cudaMalloc(&dev_result, dev_result_length)) != cudaSuccess) {
-                    cerr << "Cannot allocate " << dev_result_length << "bytes on the device" << endl;
+                    cerr << "Cannot allocate " << dev_result_length << " bytes on the device" << endl;
                     throw error;
                 }
                 if ((error = cudaMemset(dev_result, 0, dev_result_length)) != cudaSuccess) {
-                    cerr << "Cannot nullify " << dev_result_length << " bytes of memory at " << dev_result << endl;
+                    cerr << "Cannot nullify " << dev_result_length << " bytes at " << dev_result << endl;
                     throw error;
                 }
                 CharPosIterator charpos_begin(make_tuple(dev_data.begin(), dev_prefix_sum.begin())), charpos_end(make_tuple(dev_data.end(), dev_prefix_sum.end()));
                 thrust::for_each(charpos_begin, charpos_end, _NaiveMerge2(dev_result));
-
-                // Copy Data To Host
+                // Copy Encoded data to host
                 *result = static_cast<unsigned int*>(calloc(dev_result_length, sizeof(unsigned char)));
                 if ((error = cudaMemcpy(*result, dev_result, dev_result_length, cudaMemcpyDeviceToHost)) != cudaSuccess) {
-                    cerr << "Cannot copy data from device to host" << endl;
+                    cerr << "Cannot copy encoded data from device to host" << endl;
                     throw error;
                 }
+                *result_length = ceilf(static_cast<float>(*result_length_bit) / UINT_BIT);
+                cudaFree(dev_result);
 
-                // Get The Size Of The Result In Bits
-                *result_length_bit = dev_prefix_sum.back() + codes_table.codes[*(data + length - 1)].codelength;
-                *result_length = ceilf(static_cast<float>(*result_length_bit) / UINT_BIT);;
-
-                // Calculate Block Offsets
-
-                //            DevPrefixSum::iterator new_end = remove_if(dev_prefix_sum.begin(), dev_prefix_sum.end(), charpos_begin, _IsConflictBlock(block_size));
-                //            *block_offsets = static_cast<unsigned char*>(calloc(new_end - dev_prefix_sum.begin(), sizeof(DevPrefixSum::value_type)));
-                //            charpos_end = make_zip_iterator();
-
-                //            transform(dev_prefix_sum.begin(), new_end, *block_offsets, _CalcOffset(block_size));
+// Calculate Block Offsets
+                if (block_size != 0) {
+                    *block_offsets_length = *result_length_bit / (block_size * CHAR_BIT);
+                    if ((error = cudaMalloc(&dev_result, *block_offsets_length)) != cudaSuccess) {
+                        cerr << "Cannot allocate " << *block_offsets_length << " bytes on the device" << endl;
+                        throw error;
+                    }
+                    if ((error = cudaMemset(dev_block_offsets, 0, *block_offsets_length)) != cudaSuccess) {
+                        cerr << "Cannot nullify " << *block_offsets_length << " bytes at " << dev_block_offsets << endl;
+                        throw error;
+                    }
+                    thrust::for_each(charpos_begin, charpos_end, _CalcOffset(block_size, dev_block_offsets));
+                    
+                    *block_offsets = static_cast<unsigned char*>(calloc(*block_offsets_length, sizeof(unsigned char)));
+                    if ((error = cudaMemcpy(*block_offsets, dev_block_offsets, *block_offsets_length, cudaMemcpyDeviceToHost)) != cudaSuccess) {
+                        cerr << "Cannot copy block offsets from device to host" << endl;
+                        throw error;
+                    }
+                    cudaFree(dev_block_offsets);
+                }
             }
             catch(...) {
                 if (dev_result != NULL) {
@@ -150,10 +154,16 @@ namespace phuffman {
                 }
                 *result_length_bit = 0;
                 *result_length = 0;
+                if (dev_block_offsets != NULL) {
+                    cudaFree(dev_block_offsets);
+                }
+                if (*block_offsets != NULL) {
+                    free(*block_offsets);
+                    *block_offsets = NULL;
+                }
+                *block_offsets_length = 0;
                 throw;
             }
-
-            cudaFree(dev_result);
         }
     }
 }
