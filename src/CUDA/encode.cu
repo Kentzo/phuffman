@@ -65,23 +65,29 @@ namespace phuffman {
             }
         };
 
-        struct _CalcOffset {
-            unsigned int _block_size_bit;
-            unsigned char* _block_offsets;
+        struct _CalcBlockData {
+            unsigned int _block_size_bit; // Number of bits in a block
+            unsigned char* _block_offsets; // Offset for each block
+            unsigned int* _block_sizes; // Number of symblos in each block
 
-            _CalcOffset(unsigned int block_size, unsigned char* block_offsets) : _block_size_bit(bytes_to_bits(block_size)), _block_offsets(block_offsets) {}
+            _CalcBlockData(unsigned int block_size, unsigned char* block_offsets, unsigned int* block_sizes) : _block_size_bit(bytes_to_bits(block_size)), _block_offsets(block_offsets), _block_sizes(block_sizes) {}
+
+            /*!
+              @abstract We are calculating indexes of blocks where currect code starts and ends. If the whole code lies within one block then it's non-conflict.
+                        Otherwise it's conflict and we use it to calculate offset for a block where "offset" means the number of bits in the next block.
+            */
             __device__ void operator()(const CharPos& tuple) {
-                size_t start_block_idx = get<1>(tuple) / _block_size_bit;
-                unsigned int code_address_end = get<1>(tuple) + _CODES[get<0>(tuple)].codelength;
-                size_t end_block_idx = code_address_end / _block_size_bit;
-                if (start_block_idx != end_block_idx) {
-                    _block_offsets[start_block_idx] = code_address_end % _block_size_bit;
+                unsigned int code_start_pos = get<1>(tuple), code_end_pos = code_start_pos + _CODES[get<0>(tuple)].codelength;
+                unsigned int block_start_idx = code_start_pos / _block_size_bit, block_end_idx = code_end_pos / _block_size_bit;
+                atomicAdd(_block_sizes + block_start_idx, 1);
+                if (block_start_idx != block_end_idx) {
+                    _block_offsets[block_start_idx] = code_end_pos % _block_size_bit;
                 }
             }
         };
 
         void Encode(unsigned char* data, size_t data_length, CodesTable codes_table, unsigned int** result, size_t* result_length, size_t* result_length_bit,
-                           unsigned int block_size /*= 0*/, unsigned char** block_offsets /*= NULL*/, size_t* block_offsets_length /*= NULL*/)
+                    unsigned int block_size/* = 0*/, unsigned char** block_offsets/* = NULL*/, unsigned int** block_sizes/* = NULL*/, size_t* block_length/* = NULL*/)
         {
             cudaError_t error = cudaSuccess;
 
@@ -92,6 +98,7 @@ namespace phuffman {
 
             unsigned int* dev_result = NULL;
             unsigned char* dev_block_offsets = NULL;
+            unsigned int* dev_block_sizes = NULL;
             try {
 // Calculate Exclusive Prefix Sum
                 DevData dev_data(data, data + data_length);
@@ -125,22 +132,37 @@ namespace phuffman {
 
 // Calculate Block Offsets
                 if (block_size != 0) {
-                    *block_offsets_length = *result_length_bit / (block_size * CHAR_BIT);
-                    if ((error = cudaMalloc(&dev_result, *block_offsets_length)) != cudaSuccess) {
-                        cerr << "Cannot allocate " << *block_offsets_length << " bytes on the device" << endl;
+                    *block_length = *result_length_bit / (block_size * CHAR_BIT);
+                    if ((error = cudaMalloc(&dev_result, *block_length)) != cudaSuccess) {
+                        cerr << "Cannot allocate " << *block_length << " bytes on the device" << endl;
                         throw error;
                     }
-                    if ((error = cudaMemset(dev_block_offsets, 0, *block_offsets_length)) != cudaSuccess) {
-                        cerr << "Cannot nullify " << *block_offsets_length << " bytes at " << dev_block_offsets << endl;
+                    if ((error = cudaMemset(dev_block_offsets, 0, *block_length)) != cudaSuccess) {
+                        cerr << "Cannot nullify " << *block_length << " bytes at " << dev_block_offsets << endl;
                         throw error;
                     }
-                    thrust::for_each(charpos_begin, charpos_end, _CalcOffset(block_size, dev_block_offsets));
+                    if ((error = cudaMalloc(&dev_block_sizes, *block_length)) != cudaSuccess) {
+                        cerr << "Cannot allocate " << *block_length << " bytes on the device" << endl;
+                        throw error;
+                    }
+                    if ((error = cudaMemset(dev_block_sizes, 0, *block_length)) != cudaSuccess) {
+                        cerr << "Cannot nullify " << *block_length << " bytes at " << dev_block_sizes << endl;
+                        throw error;
+                    }
+                    thrust::for_each(charpos_begin, charpos_end, _CalcBlockData(block_size, dev_block_offsets, dev_block_sizes));
                     
-                    *block_offsets = static_cast<unsigned char*>(calloc(*block_offsets_length, sizeof(unsigned char)));
-                    if ((error = cudaMemcpy(*block_offsets, dev_block_offsets, *block_offsets_length, cudaMemcpyDeviceToHost)) != cudaSuccess) {
+                    *block_offsets = static_cast<unsigned char*>(calloc(*block_length, sizeof(unsigned char)));
+                    if ((error = cudaMemcpy(*block_offsets, dev_block_offsets, *block_length, cudaMemcpyDeviceToHost)) != cudaSuccess) {
                         cerr << "Cannot copy block offsets from device to host" << endl;
                         throw error;
                     }
+
+                    *block_sizes = static_cast<unsigned int*>(calloc(*block_length, sizeof(unsigned int)));
+                    if ((error = cudaMemcpy(*block_sizes, dev_block_sizes, *block_length, cudaMemcpyDeviceToHost)) != cudaSuccess) {
+                        cerr << "Cannot copy block sizes from device to host" << endl;
+                        throw error;
+                    }
+
                     cudaFree(dev_block_offsets);
                 }
             }
@@ -161,7 +183,14 @@ namespace phuffman {
                     free(*block_offsets);
                     *block_offsets = NULL;
                 }
-                *block_offsets_length = 0;
+                if (dev_block_sizes != NULL) {
+                    cudaFree(dev_block_sizes);
+                }
+                if (*block_sizes != NULL) {
+                    free(*block_sizes);
+                    *block_sizes = NULL;
+                }
+                *block_length = 0;
                 throw;
             }
         }
