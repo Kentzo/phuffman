@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cuda_runtime.h>
+#include <vector_functions.h>
 #include <climits>
 
 namespace phuffman {
@@ -15,11 +16,11 @@ namespace phuffman {
         /*!
           @abstract Creates uint4 from two uint2 objects.
         */
-        /*
+
         inline __host__ __device__ uint4 make_uint4(uint2 a, uint2 b) {
-            return make_uint4(a.x, a.y, b.x, b.y);
+            return ::make_uint4(a.x, a.y, b.x, b.y);
         }
-        */
+
 
         /*!
           @abstract Shifts positions bits of a given value to the left and returns the result.

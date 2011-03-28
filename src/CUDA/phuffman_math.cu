@@ -21,7 +21,7 @@ namespace phuffman {
 
             uint tmp[8] = {x_l | y_h, y_l | z_h, z_l | w_h, w_l, 0, 0, 0, 0};
             unsigned int offset = positions / bytes_to_bits(sizeof(uint));
-            return make_uint4(tmp[0 + offset], tmp[1 + offset], tmp[2 + offset], tmp[3 + offset]);
+            return ::make_uint4(tmp[0 + offset], tmp[1 + offset], tmp[2 + offset], tmp[3 + offset]);
         }
 
         __host__ __device__ uint2 operator<<(uint2 value, unsigned int positions) {
@@ -49,7 +49,7 @@ namespace phuffman {
 
             int tmp[8] = {0, 0, 0, 0,  x_h, x_l | y_h, y_l | z_h, z_l | w_h};
             unsigned int offset = positions / bytes_to_bits(sizeof(uint));
-            return make_uint4(tmp[4 - offset], tmp[5 - offset], tmp[6 - offset], tmp[7 - offset]);
+            return ::make_uint4(tmp[4 - offset], tmp[5 - offset], tmp[6 - offset], tmp[7 - offset]);
         }
 
         __host__ __device__ uint2 operator>>(uint2 value, unsigned int positions) {
@@ -80,11 +80,11 @@ namespace phuffman {
         }
 
         __host__ __device__ uint4 operator|(uint4 a, uint4 b) {
-            return make_uint4(a.x | b.x, a.y | b.y, a.z | b.z, a.w | b.w);
+            return ::make_uint4(a.x | b.x, a.y | b.y, a.z | b.z, a.w | b.w);
         }
 
         __host__ __device__ uint2 operator|(uint2 a, uint2 b) {
-            return make_uint2(a.x | b.x, a.y | b.y);
+            return ::make_uint2(a.x | b.x, a.y | b.y);
         }
     }
 }
