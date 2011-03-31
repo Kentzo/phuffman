@@ -133,7 +133,7 @@ namespace phuffman {
 // Calculate Block Offsets
                 if (block_size != 0) {
                     *block_length = *result_length_bit / (block_size * CHAR_BIT);
-                    if ((error = cudaMalloc(&dev_result, *block_length)) != cudaSuccess) {
+                    if ((error = cudaMalloc(&dev_block_offsets, *block_length)) != cudaSuccess) {
                         cerr << "Cannot allocate " << *block_length << " bytes on the device" << endl;
                         throw error;
                     }

@@ -31,7 +31,7 @@ int main() {
       'a', 'a', 'a', 'a', 'a', 'a', 'a', 'a'};
     size_t test_length = sizeof(test);
     */
-    static const size_t test_length = 1024 * 1024 * 100;
+    static const size_t test_length = 1024 * 1024 * 5;
     unsigned char* test = new unsigned char[test_length];
     ifstream urandom("/dev/urandom");
     urandom.read((char *)test, test_length);
@@ -41,8 +41,14 @@ int main() {
     unsigned int* result = NULL;
     size_t result_length = 0;
     size_t result_length_bit = 0;
+    unsigned char* block_offsets = NULL;
+    unsigned int* block_sizes = NULL;
+    size_t block_length = 0;
+    unsigned char* data = NULL;
+    size_t data_length = 0;
     try {
-        CUDA::Encode((unsigned char*)test, (size_t)test_length, (CodesTable)*codes.c_table(), (unsigned int**)&result, (size_t*)&result_length, (size_t*)&result_length_bit);
+        CUDA::Encode((unsigned char*)test, (size_t)test_length, (CodesTable)*codes.c_table(), (unsigned int**)&result, (size_t*)&result_length, (size_t*)&result_length_bit, 8, &block_offsets, &block_sizes, &block_length);
+        CUDA::Decode(result, result_length, *codes.c_table(), 8, block_offsets, block_sizes, block_length, &data, &data_length);
     }
     catch(cudaError_t error) {
         cerr << cudaGetErrorString(error) << endl;
