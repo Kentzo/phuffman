@@ -7,7 +7,7 @@
 #include <thrust/copy.h>
 #include "phuffman_math.cu"
 #include "decode.hpp"
-#include "../CodesTable.h"
+#include "CodesTable.h"
 
 namespace phuffman {
     namespace CUDA {

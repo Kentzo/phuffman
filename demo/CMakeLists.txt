@@ -1,6 +1,0 @@
-project(DEMO)
-find_package(CUDA)
-include_directories(./../src /home/ikulakov/NVIDIA_GPU_Computing_SDK/C/common/inc/)
-link_directories(./../src)
-cuda_add_executable(demo main.cpp)
-target_link_libraries(demo phuffman)

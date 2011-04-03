@@ -10,8 +10,8 @@
 #include "phuffman_math.cu"
 #include "phuffman_limits.cuh"
 #include "encode.hpp"
-#include "../constants.h"
-#include "../Code.h"
+#include "constants.h"
+#include "Code.h"
 
 namespace phuffman {
     namespace CUDA {

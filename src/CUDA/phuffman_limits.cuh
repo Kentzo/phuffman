@@ -2,8 +2,7 @@
 
 #include <climits>
 
-#define UINT_BIT (sizeof(uint) * CHAR_BIT)
-
+#define UINT_BIT (sizeof(unsigned int) * CHAR_BIT)
 #define TYPE_BIT(x) (sizeof(x) * CHAR_BIT)
 
 #ifdef __CUDACC__
