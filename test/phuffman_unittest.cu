@@ -2,7 +2,7 @@
 #include "gtest/gtest.h"
 #include "phuffman_math.cu"
 #include "phuffman_limits.cuh"
-#include "cpu_encoder.hpp"
+#include "cpu_encode.hpp"
 #include "phuffman.hpp"
 #include "CodesTableAdapter.hpp"
 #include <iostream>
@@ -58,7 +58,8 @@ TEST(EncoderTest, DataEncoding) {
     CPU::Encode(test, sizeof(test), *codes.c_table(), &result, &result_length, &trailing_zeroes);
     EXPECT_EQ(2, result_length);
     EXPECT_EQ(30, trailing_zeroes);
-    EXPECT_EQ(16646144, result[0];
+    EXPECT_EQ(4278190421, result[0]);
+    EXPECT_EQ(1073741824, result[1]);
     free(result);
 }
 #endif // __CUDACC__

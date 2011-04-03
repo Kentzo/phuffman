@@ -13,7 +13,7 @@ namespace phuffman {
                     unsigned char* encoded_data_trail_zeroes,
                     size_t  block_bit_size = 0,
                     unsigned char** block_bit_offsets = NULL,
-                    unsigned int** block_sym_sizes = NULL,
+                    unsigned short** block_sym_sizes = NULL,
                     size_t* block_count = NULL);
     }
 }
