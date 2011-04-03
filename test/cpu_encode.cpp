@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <cmath>
 #include "cpu_encode.hpp"
 #include "phuffman_limits.cuh"
 
@@ -10,9 +11,9 @@ namespace phuffman {
                     unsigned int** encoded_data,
                     size_t* encoded_data_length,
                     unsigned char* encoded_data_trail_zeroes,
-                    size_t block_bit_size/* = 0*/,
+                    size_t block_int_size/* = 0*/,
                     unsigned char** block_bit_offsets/* = NULL*/,
-                    unsigned short** block_sym_sizes/* = NULL*/,
+                    unsigned int** block_sym_sizes/* = NULL*/,
                     size_t* block_count/* = NULL*/)
         {
             *encoded_data_length = 0;
@@ -56,6 +57,25 @@ namespace phuffman {
                      (*encoded_data)[int_idx] |= static_cast<unsigned int>(code.code) >> (static_cast<int>(code.codelength) - UINT_BIT + written_bits);
                      ++int_idx;
                      written_bits = 0;
+                }
+            }
+
+            if (block_int_size > 0) {
+                *block_count = ceilf(static_cast<float>(*encoded_data_length) / block_int_size);
+                *block_bit_offsets = static_cast<unsigned char*>(calloc(*block_count, sizeof(unsigned char)));
+                *block_sym_sizes = static_cast<unsigned int*>(calloc(*block_count, sizeof(unsigned int)));
+                size_t block_idx = 0;
+                size_t bits_per_block = 0;
+                for (size_t i=0; i<data_length; ++i) {
+                    unsigned char sym = data[i];
+                    Code code = codes_table.codes[sym];
+                    bits_per_block += code.codelength;
+                    (*block_sym_sizes)[block_idx] += 1;
+                    if (bits_per_block >= (UINT_BIT * block_int_size)) {
+                        (*block_bit_offsets)[block_idx] = bits_per_block % (UINT_BIT * block_int_size);
+                        bits_per_block = bits_per_block % (UINT_BIT * block_int_size);
+                        ++block_idx;
+                    }
                 }
             }
         }

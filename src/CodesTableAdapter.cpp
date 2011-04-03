@@ -19,6 +19,7 @@ namespace phuffman {
 
     CodesTableAdapter::CodesTableAdapter(const char *file_data, size_t size) {
         assert(size == ALPHABET_SIZE);
+        assert(file_data != NULL);
 
         memset(adaptee.codes, 0, sizeof(Code)*ALPHABET_SIZE);
 
@@ -51,6 +52,7 @@ namespace phuffman {
 
     CodesTableAdapter::CodesTableAdapter(const unsigned char *data, size_t size) {
         assert(size <= MAXIMUM_DATABLOCK_SIZE);
+        assert(data != NULL);
 
         memset(adaptee.codes, 0, sizeof(Code)*ALPHABET_SIZE);
 

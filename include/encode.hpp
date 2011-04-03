@@ -4,7 +4,15 @@
 
 namespace phuffman {
     namespace CUDA {
-        void Encode(unsigned char* data, size_t data_length, CodesTable codes_table, unsigned int** result, size_t* result_length, size_t* result_length_bit,
-                    unsigned int block_size = 0, unsigned char** block_offsets = NULL, unsigned int** block_sizes = NULL, size_t* block_length = NULL);
+        void Encode(unsigned char* data,
+                    size_t data_length,
+                    CodesTable codes_table,
+                    unsigned int** encoded_data,
+                    size_t* encoded_data_length,
+                    unsigned char* encoded_data_trail_zeroes,
+                    size_t block_int_size = 0,
+                    unsigned char** block_bit_offsets = NULL,
+                    unsigned int** block_sym_sizes = NULL,
+                    size_t* block_count = NULL);
     }
 }
