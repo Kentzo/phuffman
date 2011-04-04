@@ -13,7 +13,7 @@ cuda_add_library(phuffman STATIC src/phuffman.cpp src/DepthCounterNode.cpp src/C
 add_subdirectory(test/gtest)
 include_directories(test/gtest/include)
 include_directories(src/CUDA)
-cuda_add_executable(phuffman_unittest test/phuffman_unittest.cu test/cpu_encode.cpp)
+cuda_add_executable(phuffman_unittest test/phuffman_unittest.cu test/cpu_encode.cpp test/cpu_decode.cpp)
 target_link_libraries(phuffman_unittest phuffman gtest)
 
 enable_testing()
