@@ -3,7 +3,7 @@
 #include "CodesTable.h"
 
 namespace phuffman {
-    namespace CPU {        
+    namespace CPU {
         // pass 0 for block_bit_size to not calc block data.
         void Encode(unsigned char* data,
                     size_t data_length,
