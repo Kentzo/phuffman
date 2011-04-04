@@ -196,32 +196,18 @@ void CompareEncoders(const char* path, size_t a_block_int_size = 8) {
     free(gpu_block_bit_offsets);
     free(cpu_block_sym_sizes);
     free(gpu_block_sym_sizes);
-    
-    std::cout << "Compression ratio: " << (static_cast<float>(file_data_length) / (cpu_result_length * sizeof(unsigned int))) << std::endl;
 }
 
 TEST(EncodeTest, CalgrayBib) {
-    for (size_t i=8; i<=64; i+= 8) {
-        CompareEncoders("./test/calgray/bib", i-1);
-        CompareEncoders("./test/calgray/bib", i);
-        CompareEncoders("./test/calgray/bib", i+1);
-    }
+    CompareEncoders("./test/calgray/bib");
 }
 
 TEST(EncodeTest, CalgrayBook1) {
-    for (size_t i=8; i<=64; i+= 8) {
-        CompareEncoders("./test/calgray/book1", i-1);
-        CompareEncoders("./test/calgray/book1", i);
-        CompareEncoders("./test/calgray/book1", i+1);
-    }
+    CompareEncoders("./test/calgray/book1");
 }
 
 TEST(EncodeTest, CalgrayBook2) {
-    for (size_t i=8; i<=64; i+= 8) {
-        CompareEncoders("./test/calgray/book2", i-1);
-        CompareEncoders("./test/calgray/book2", i);
-        CompareEncoders("./test/calgray/book2", i+1);
-    }
+    CompareEncoders("./test/calgray/book2");
 }
 
 TEST(EncodeTest, CalgrayProgp) {
